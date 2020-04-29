@@ -1,0 +1,89 @@
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
+#define DHTPIN A0     // Digital pin connected to the DHT sensor
+#define DHTTYPE    DHT22     // DHT 22 (AM2302)
+DHT_Unified dht(DHTPIN, DHTTYPE);
+
+#include "NRF24L01.h"
+#define TX_ADR_WIDTH    5   // 5 unsigned chars TX(RX) address width
+#define TX_PLOAD_WIDTH  3   // 3 unsigned chars TX payload
+unsigned char TX_ADDRESS[TX_ADR_WIDTH]  = 
+{
+    0x34,0x43,0x10,0x10,0x01
+}; 
+unsigned char rx_buf[TX_PLOAD_WIDTH] = {0}; // initialize value
+unsigned char tx_buf[TX_PLOAD_WIDTH] = {0};
+float temperatura;
+
+void setup()
+{
+
+    Serial.begin(9600);
+    dht.begin();
+    //ID do node
+    tx_buf[0] = 1;
+    NRF_Init(); // Initialize IO port
+    Serial.println("TX_Mode Start");    
+
+
+}
+
+void loop()
+{
+
+  delay(2000);
+  sensors_event_t event;
+  dht.temperature().getEvent(&event);
+  temperatura = event.temperature;
+  Serial.println(temperatura);
+
+  //ID da Faixa de Temperatura 0-5
+
+ if (temperatura <= -40) {
+    tx_buf[1] = 0;
+  }
+  else {
+         if (temperatura <= -14.4) {
+            tx_buf[1] = 1;
+          }
+          else {                
+                if (temperatura <= 11.2) {
+                  tx_buf[1] = 2;
+                }
+                else {                
+                      if (temperatura <= 36.8) {
+                        tx_buf[1] = 3;
+                      }
+                      else {                
+                            if (temperatura <= 62.4) {
+                              tx_buf[1] = 4;
+                            }
+                            else {                
+                              tx_buf[1] = 5;
+                            }
+                      }
+                }
+          }
+  }
+
+  
+  //Valor da temperatura dentro da faixa, variando de 0-255
+
+  if ( temperatura <= -40 ) {
+  tx_buf[2] = 0;
+  }
+  else {
+  tx_buf[2] = (temperatura+40)*10/tx_buf[1] -1;
+  }
+  
+   
+    NRF_SeTxMode();
+    do
+    { 
+        NRF_Send(tx_buf);
+    }
+ while(!NRF_CheckAck());
+
+
+}
